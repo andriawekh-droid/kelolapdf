@@ -25,6 +25,7 @@ import {
   addSignatureToPdf,
   downloadPdfBlob,
 } from '@/lib/pdf/core';
+import { compressPdf, CompressResult } from '@/lib/pdf/compress';
 
 interface ToolWorkspaceViewProps {
   tool: PdfTool;
@@ -61,6 +62,9 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
     position: 'bottom-right',
   });
 
+  const [compressResult, setCompressResult] = useState<CompressResult | null>(null);
+  const [compressProgress, setCompressProgress] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset state whenever the active tool changes
@@ -72,6 +76,8 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
     setSignatureDataUrl(null);
     setPassword('');
     setUnlockPassword('');
+    setCompressResult(null);
+    setCompressProgress(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -128,6 +134,16 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
       let outputFilename = `kelolapdf-${tool.slug}-${Date.now()}.pdf`;
 
       switch (tool.id) {
+        case 'compress':
+          setCompressProgress('Menyiapkan kompresi...');
+          const compResult = await compressPdf(files[0], compressLevel, (current, total) => {
+            setCompressProgress(`Mengompres halaman ${current} dari ${total}...`);
+          });
+          resultBytes = compResult.bytes;
+          setCompressResult(compResult);
+          outputFilename = `kelolapdf-kompres-${files[0].name}`;
+          break;
+
         case 'sign':
           if (!signatureDataUrl) {
             throw new Error('Silakan buat tanda tangan terlebih dahulu (gores pada kanvas, ketik nama, atau unggah gambar).');
@@ -541,6 +557,23 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span className="font-semibold">Berhasil! Dokumen PDF baru telah diunduh otomatis ke perangkat Anda.</span>
           </div>
+
+          {compressResult && (
+            <div className="bg-white border border-emerald-300 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <span className="text-stone-500 text-[11px] block">Perbandingan Ukuran:</span>
+                <span className="font-bold text-stone-800 text-xs">
+                  {(compressResult.originalSize / 1024 / 1024).toFixed(2)} MB → {(compressResult.compressedSize / 1024 / 1024).toFixed(2)} MB
+                </span>
+              </div>
+              {compressResult.percentageSaved > 0 && (
+                <span className="font-bold text-xs text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300">
+                  Hemat {compressResult.percentageSaved}%
+                </span>
+              )}
+            </div>
+          )}
+
           <div>
             <button
               type="button"
@@ -549,6 +582,8 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
                 setSuccess(false);
                 setErrorMessage(null);
                 setSignatureDataUrl(null);
+                setCompressResult(null);
+                setCompressProgress(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
               }}
               className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg font-medium hover:bg-emerald-100 transition shadow-2xs"
@@ -574,7 +609,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
           {isProcessing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-              <span>Memproses di Browser...</span>
+              <span>{compressProgress || 'Memproses di Browser...'}</span>
             </>
           ) : (
             <>
