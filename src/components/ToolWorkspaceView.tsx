@@ -43,6 +43,7 @@ import {
 } from '@/lib/pdf/core';
 import { compressPdf, CompressResult } from '@/lib/pdf/compress';
 import { PdfVisualEditor } from './PdfVisualEditor';
+import { PdfPageThumbnail } from './PdfPageThumbnail';
 
 interface ToolWorkspaceViewProps {
   tool: PdfTool;
@@ -548,49 +549,59 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
                     Membaca halaman dokumen...
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1">
-                    {arrangePages.map((pageIdx, currentPosition) => (
-                      <div
-                        key={`${pageIdx}-${currentPosition}`}
-                        className="bg-white border border-stone-200 rounded-xl p-2.5 flex flex-col justify-between shadow-2xs group hover:border-amber-400 transition"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-stone-900">
-                            Lembar {currentPosition + 1}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1">
+                      {arrangePages.map((pageIdx, currentPosition) => (
+                        <div
+                          key={`${pageIdx}-${currentPosition}`}
+                          className="bg-white border border-stone-200 rounded-xl p-2 flex flex-col justify-between shadow-2xs group hover:border-amber-400 transition"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold text-stone-900">
+                              Lembar {currentPosition + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removePageFromArrange(currentPosition)}
+                              title="Hapus lembar ini"
+                              className="text-stone-300 hover:text-red-600 p-0.5 rounded transition cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Mini visual thumbnail */}
+                          <div className="my-1 flex justify-center">
+                            <PdfPageThumbnail
+                              file={files[0]}
+                              pageNumber={pageIdx + 1}
+                              className="max-h-28 w-auto shadow-2xs"
+                            />
+                          </div>
+
+                          <span className="text-[10px] text-stone-400 text-center mb-1.5 block">
+                            Hal. Asli: {pageIdx + 1}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => removePageFromArrange(currentPosition)}
-                            title="Hapus lembar ini"
-                            className="text-stone-300 hover:text-red-600 p-0.5 rounded transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1 pt-1 border-t border-stone-100">
+                            <button
+                              type="button"
+                              disabled={currentPosition === 0}
+                              onClick={() => movePage(currentPosition, currentPosition - 1)}
+                              className="flex-1 py-1 bg-stone-100 hover:bg-amber-100 disabled:opacity-30 disabled:hover:bg-stone-100 rounded text-stone-700 flex items-center justify-center text-[10px] font-medium transition cursor-pointer"
+                            >
+                              <ArrowUp className="w-3 h-3 mr-0.5" /> Geser
+                            </button>
+                            <button
+                              type="button"
+                              disabled={currentPosition === arrangePages.length - 1}
+                              onClick={() => movePage(currentPosition, currentPosition + 1)}
+                              className="flex-1 py-1 bg-stone-100 hover:bg-amber-100 disabled:opacity-30 disabled:hover:bg-stone-100 rounded text-stone-700 flex items-center justify-center text-[10px] font-medium transition cursor-pointer"
+                            >
+                              <ArrowDown className="w-3 h-3 mr-0.5" /> Geser
+                            </button>
+                          </div>
                         </div>
-                        <span className="text-[10px] text-stone-500 mb-2 block">
-                          (Halaman Asli: {pageIdx + 1})
-                        </span>
-                        <div className="flex items-center gap-1 pt-1 border-t border-stone-100">
-                          <button
-                            type="button"
-                            disabled={currentPosition === 0}
-                            onClick={() => movePage(currentPosition, currentPosition - 1)}
-                            className="flex-1 py-1 bg-stone-100 hover:bg-amber-100 disabled:opacity-30 disabled:hover:bg-stone-100 rounded text-stone-700 flex items-center justify-center text-[10px] font-medium transition"
-                          >
-                            <ArrowUp className="w-3 h-3 mr-0.5" /> Geser
-                          </button>
-                          <button
-                            type="button"
-                            disabled={currentPosition === arrangePages.length - 1}
-                            onClick={() => movePage(currentPosition, currentPosition + 1)}
-                            className="flex-1 py-1 bg-stone-100 hover:bg-amber-100 disabled:opacity-30 disabled:hover:bg-stone-100 rounded text-stone-700 flex items-center justify-center text-[10px] font-medium transition"
-                          >
-                            <ArrowDown className="w-3 h-3 mr-0.5" /> Geser
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
                 )}
                 <p className="text-[11px] text-stone-400">
                   Gunakan tombol panah untuk memindahkan urutan lembar, atau hapus lembar yang tidak dibutuhkan.
@@ -626,47 +637,61 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
 
             {/* 3. SPLIT SETTINGS */}
             {tool.id === 'split' && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-stone-700">
-                  Rentang Halaman yang Ingin Diambil (contoh: 1-3, 5):
-                </label>
-                <input
-                  type="text"
-                  value={pageRange}
-                  onChange={(e) => setPageRange(e.target.value)}
-                  className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
-                  placeholder="misal: 1-3, 5"
-                />
-                <p className="text-[11px] text-stone-400">
-                  Tuliskan nomor halaman atau rentang menggunakan tanda pisah.
-                </p>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-700">
+                    Rentang Halaman yang Ingin Diambil (contoh: 1-3, 5):
+                  </label>
+                  <input
+                    type="text"
+                    value={pageRange}
+                    onChange={(e) => setPageRange(e.target.value)}
+                    className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                    placeholder="misal: 1-3, 5"
+                  />
+                  <p className="text-[11px] text-stone-400">
+                    Tuliskan nomor halaman atau rentang menggunakan tanda pisah.
+                  </p>
+                </div>
+                {files.length > 0 && (
+                  <div className="pt-2 border-t border-stone-200">
+                    <PdfVisualEditor file={files[0]} mode="preview" />
+                  </div>
+                )}
               </div>
             )}
 
             {/* 4. ROTATE SETTINGS */}
             {tool.id === 'rotate' && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-stone-700">Arah Putaran:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: '90° Kanan', val: 90 },
-                    { label: '180° Balik', val: 180 },
-                    { label: '270° Kiri', val: 270 },
-                  ].map((item) => (
-                    <button
-                      key={item.val}
-                      type="button"
-                      onClick={() => setRotateAngle(item.val)}
-                      className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
-                        rotateAngle === item.val
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                          : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-700">Arah Putaran:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: '90° Kanan', val: 90 },
+                      { label: '180° Balik', val: 180 },
+                      { label: '270° Kiri', val: 270 },
+                    ].map((item) => (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => setRotateAngle(item.val)}
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
+                          rotateAngle === item.val
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                {files.length > 0 && (
+                  <div className="pt-2 border-t border-stone-200">
+                    <PdfVisualEditor file={files[0]} mode="rotate" rotateAngle={rotateAngle} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -717,46 +742,68 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
                     className="w-full accent-amber-600"
                   />
                 </div>
+                {files.length > 0 && (
+                  <div className="pt-2 border-t border-stone-200">
+                    <PdfVisualEditor
+                      file={files[0]}
+                      mode="watermark"
+                      watermarkText={watermarkText}
+                      watermarkOpacity={watermarkOpacity}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
             {/* 7. PAGE NUMBERS SETTINGS */}
             {tool.id === 'page-numbers' && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="skipCoverCheckView"
-                    checked={skipCover}
-                    onChange={(e) => setSkipCover(e.target.checked)}
-                    className="rounded-sm accent-amber-600"
-                  />
-                  <label htmlFor="skipCoverCheckView" className="text-xs text-stone-700">
-                    Lewati halaman pertama (halaman sampul/cover)
-                  </label>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-stone-700">Posisi Nomor:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: 'Bawah Tengah', val: 'bottom-center' },
-                      { label: 'Bawah Kanan', val: 'bottom-right' },
-                    ].map((pos) => (
-                      <button
-                        key={pos.val}
-                        type="button"
-                        onClick={() => setPageNumberPos(pos.val as any)}
-                        className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
-                          pageNumberPos === pos.val
-                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        {pos.label}
-                      </button>
-                    ))}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="skipCoverCheckView"
+                      checked={skipCover}
+                      onChange={(e) => setSkipCover(e.target.checked)}
+                      className="rounded-sm accent-amber-600"
+                    />
+                    <label htmlFor="skipCoverCheckView" className="text-xs text-stone-700">
+                      Lewati halaman pertama (halaman sampul/cover)
+                    </label>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-stone-700">Posisi Nomor:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Bawah Tengah', val: 'bottom-center' },
+                        { label: 'Bawah Kanan', val: 'bottom-right' },
+                      ].map((pos) => (
+                        <button
+                          key={pos.val}
+                          type="button"
+                          onClick={() => setPageNumberPos(pos.val as any)}
+                          className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
+                            pageNumberPos === pos.val
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+                {files.length > 0 && (
+                  <div className="pt-2 border-t border-stone-200">
+                    <PdfVisualEditor
+                      file={files[0]}
+                      mode="page-numbers"
+                      pageNumberPos={pageNumberPos}
+                      skipCover={skipCover}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -908,31 +955,42 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
 
             {/* 14. CROP SETTINGS */}
             {tool.id === 'crop' && (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-stone-700">Ukuran Pangkas Margin:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Ringan (15pt)', val: 15 },
-                    { label: 'Sedang (30pt)', val: 30 },
-                    { label: 'Lebar (50pt)', val: 50 },
-                  ].map((item) => (
-                    <button
-                      key={item.val}
-                      type="button"
-                      onClick={() => setCropMargin(item.val)}
-                      className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
-                        cropMargin === item.val
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                          : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-stone-700">Ukuran Pangkas Margin:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Ringan (15pt)', val: 15 },
+                      { label: 'Sedang (30pt)', val: 30 },
+                      { label: 'Lebar (50pt)', val: 50 },
+                    ].map((item) => (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => setCropMargin(item.val)}
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
+                          cropMargin === item.val
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Tepi kosong di sekeliling halaman akan dipangkas secara proporsional.
+                  </p>
                 </div>
-                <p className="text-[11px] text-stone-400">
-                  Tepi kosong di sekeliling halaman akan dipangkas secara proporsional.
-                </p>
+                {files.length > 0 && (
+                  <div className="pt-2 border-t border-stone-200">
+                    <PdfVisualEditor
+                      file={files[0]}
+                      mode="crop"
+                      cropMargin={cropMargin}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
