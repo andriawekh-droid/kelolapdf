@@ -1,0 +1,293 @@
+export interface PdfTool {
+  id: string;
+  slug: string;
+  title: string;
+  shortDesc: string;
+  category: 'organize' | 'optimize' | 'convert' | 'security';
+  categoryName: string;
+  iconName: string;
+  emoji: string;
+  badge?: string;
+  accentBg: string;
+  accentBorder: string;
+  accentText: string;
+  popular?: boolean;
+}
+
+export const CATEGORIES = [
+  { id: 'all', name: 'Semua Alat', emoji: '✨' },
+  { id: 'organize', name: 'Organisir Halaman', emoji: '📑' },
+  { id: 'optimize', name: 'Optimasi & Teks', emoji: '⚡' },
+  { id: 'convert', name: 'Konversi & Media', emoji: '🔄' },
+  { id: 'security', name: 'Keamanan & Legalitas', emoji: '🔒' },
+] as const;
+
+export const PDF_TOOLS: PdfTool[] = [
+  // 1. Gabung PDF
+  {
+    id: 'merge',
+    slug: 'gabung-pdf',
+    title: 'Gabung PDF',
+    shortDesc: 'Satukan beberapa file PDF jadi satu dokumen rapi dengan urutan sesuai keinginan Anda.',
+    category: 'organize',
+    categoryName: 'Organisir Halaman',
+    iconName: 'Layers',
+    emoji: '📚',
+    badge: 'Favorit',
+    accentBg: 'bg-amber-50',
+    accentBorder: 'border-amber-200',
+    accentText: 'text-amber-700',
+    popular: true,
+  },
+  // 2. Pisah PDF
+  {
+    id: 'split',
+    slug: 'pisah-pdf',
+    title: 'Pisah PDF',
+    shortDesc: 'Ambil halaman tertentu atau pisahkan setiap lembar dokumen menjadi file PDF baru.',
+    category: 'organize',
+    categoryName: 'Organisir Halaman',
+    iconName: 'Scissors',
+    emoji: '✂️',
+    badge: 'Populer',
+    accentBg: 'bg-sky-50',
+    accentBorder: 'border-sky-200',
+    accentText: 'text-sky-700',
+    popular: true,
+  },
+  // 3. Perkecil Ukuran (Compress)
+  {
+    id: 'compress',
+    slug: 'kompres-pdf',
+    title: 'Perkecil Ukuran PDF',
+    shortDesc: 'Kompres file PDF hasil scan agar ringan diunggah ke portal pendaftaran/email tanpa server.',
+    category: 'optimize',
+    categoryName: 'Optimasi & Teks',
+    iconName: 'Minimize2',
+    emoji: '🗜️',
+    badge: 'Sering Dipakai',
+    accentBg: 'bg-emerald-50',
+    accentBorder: 'border-emerald-200',
+    accentText: 'text-emerald-700',
+    popular: true,
+  },
+  // 4. Atur Halaman (Arrange)
+  {
+    id: 'arrange',
+    slug: 'atur-halaman',
+    title: 'Atur & Urutkan Halaman',
+    shortDesc: 'Geser urutan halaman dengan drag & drop visual, hapus lembar yang tak perlu, atau gandakan.',
+    category: 'organize',
+    categoryName: 'Organisir Halaman',
+    iconName: 'LayoutGrid',
+    emoji: '📋',
+    accentBg: 'bg-purple-50',
+    accentBorder: 'border-purple-200',
+    accentText: 'text-purple-700',
+    popular: true,
+  },
+  // 5. Putar Halaman (Rotate)
+  {
+    id: 'rotate',
+    slug: 'putar-pdf',
+    title: 'Putar Halaman',
+    shortDesc: 'Perbaiki halaman PDF yang terbalik atau miring (90°, 180°, 270°) per lembar atau serentak.',
+    category: 'organize',
+    categoryName: 'Organisir Halaman',
+    iconName: 'RotateCw',
+    emoji: '🔄',
+    accentBg: 'bg-orange-50',
+    accentBorder: 'border-orange-200',
+    accentText: 'text-orange-700',
+  },
+  // 6. Gambar ke PDF
+  {
+    id: 'image-to-pdf',
+    slug: 'gambar-ke-pdf',
+    title: 'Gambar ke PDF',
+    shortDesc: 'Ubah foto JPG, PNG, atau scan dari galeri ponsel menjadi dokumen PDF tunggal berkualitas.',
+    category: 'convert',
+    categoryName: 'Konversi & Media',
+    iconName: 'FileImage',
+    emoji: '🖼️',
+    badge: 'Mudah',
+    accentBg: 'bg-blue-50',
+    accentBorder: 'border-blue-200',
+    accentText: 'text-blue-700',
+    popular: true,
+  },
+  // 7. PDF ke Gambar
+  {
+    id: 'pdf-to-image',
+    slug: 'pdf-ke-gambar',
+    title: 'PDF ke Gambar (JPG/PNG)',
+    shortDesc: 'Ekstrak setiap halaman PDF menjadi gambar resolusi tinggi, unduh satuan atau sekaligus via ZIP.',
+    category: 'convert',
+    categoryName: 'Konversi & Media',
+    iconName: 'Images',
+    emoji: '📸',
+    badge: 'Baru',
+    accentBg: 'bg-teal-50',
+    accentBorder: 'border-teal-200',
+    accentText: 'text-teal-700',
+  },
+  // 8. Tanda Tangan PDF (E-Sign)
+  {
+    id: 'sign',
+    slug: 'tanda-tangan-pdf',
+    title: 'Tanda Tangan Dokumen',
+    shortDesc: 'Goreskan tanda tangan digital, ketik nama dengan font latin, atau tempel stempel transparan.',
+    category: 'security',
+    categoryName: 'Keamanan & Legalitas',
+    iconName: 'PenTool',
+    emoji: '✍️',
+    badge: 'Paling Dicari',
+    accentBg: 'bg-rose-50',
+    accentBorder: 'border-rose-200',
+    accentText: 'text-rose-700',
+    popular: true,
+  },
+  // 9. OCR PDF (Scan ke Teks)
+  {
+    id: 'ocr',
+    slug: 'ocr-pdf',
+    title: 'OCR (Scan ke Teks)',
+    shortDesc: 'Deteksi teks dari lembar scan/foto PDF bahasa Indonesia & Inggris agar bisa dicari dan disalin.',
+    category: 'optimize',
+    categoryName: 'Optimasi & Teks',
+    iconName: 'ScanText',
+    emoji: '🔍',
+    badge: 'Cerdas (WASM)',
+    accentBg: 'bg-indigo-50',
+    accentBorder: 'border-indigo-200',
+    accentText: 'text-indigo-700',
+    popular: true,
+  },
+  // 10. Watermark PDF
+  {
+    id: 'watermark',
+    slug: 'watermark-pdf',
+    title: 'Beri Watermark',
+    shortDesc: 'Cap stempel teks seperti "DRAFT", "RAHASIA", atau instansi Anda dengan rotasi dan posisi bebas.',
+    category: 'security',
+    categoryName: 'Keamanan & Legalitas',
+    iconName: 'Stamp',
+    emoji: '🏷️',
+    accentBg: 'bg-pink-50',
+    accentBorder: 'border-pink-200',
+    accentText: 'text-pink-700',
+  },
+  // 11. Nomor Halaman
+  {
+    id: 'page-numbers',
+    slug: 'nomor-halaman',
+    title: 'Beri Nomor Halaman',
+    shortDesc: 'Tambahkan penomoran halaman otomatis di header atau footer dengan opsi lewati halaman sampul.',
+    category: 'optimize',
+    categoryName: 'Optimasi & Teks',
+    iconName: 'Hash',
+    emoji: '🔢',
+    accentBg: 'bg-yellow-50',
+    accentBorder: 'border-yellow-200',
+    accentText: 'text-yellow-800',
+  },
+  // 12. Kunci PDF (Password)
+  {
+    id: 'protect',
+    slug: 'kunci-pdf',
+    title: 'Kunci & Enkripsi PDF',
+    shortDesc: 'Beri kata sandi pengaman agar dokumen rahasia Anda hanya bisa dibuka oleh pihak yang berhak.',
+    category: 'security',
+    categoryName: 'Keamanan & Legalitas',
+    iconName: 'Lock',
+    emoji: '🔐',
+    accentBg: 'bg-slate-100',
+    accentBorder: 'border-slate-300',
+    accentText: 'text-slate-800',
+  },
+  // 13. Buka Kunci (Unlock)
+  {
+    id: 'unlock',
+    slug: 'buka-kunci-pdf',
+    title: 'Hapus Password PDF',
+    shortDesc: 'Hilangkan proteksi password yang melekat agar dokumen dapat dibuka langsung tanpa ketik sandi.',
+    category: 'security',
+    categoryName: 'Keamanan & Legalitas',
+    iconName: 'Unlock',
+    emoji: '🔓',
+    accentBg: 'bg-lime-50',
+    accentBorder: 'border-lime-200',
+    accentText: 'text-lime-800',
+  },
+  // 14. Sensor Data Rahasia (Redact)
+  {
+    id: 'redact',
+    slug: 'sensor-pdf',
+    title: 'Sensor Data Sensitif',
+    shortDesc: 'Tutup permanen (blackout) bagian NIK, nomor rekening, alamat, atau paraf sebelum disebar.',
+    category: 'security',
+    categoryName: 'Keamanan & Legalitas',
+    iconName: 'ShieldAlert',
+    emoji: '⬛',
+    badge: 'Privat',
+    accentBg: 'bg-red-50',
+    accentBorder: 'border-red-200',
+    accentText: 'text-red-700',
+  },
+  // 15. Potong Margin (Crop)
+  {
+    id: 'crop',
+    slug: 'potong-pdf',
+    title: 'Potong Margin (Crop)',
+    shortDesc: 'Pangkas tepi kosong atau sesuaikan area tampilan halaman PDF agar fokus pada isi dokumen.',
+    category: 'organize',
+    categoryName: 'Organisir Halaman',
+    iconName: 'Crop',
+    emoji: '📐',
+    accentBg: 'bg-cyan-50',
+    accentBorder: 'border-cyan-200',
+    accentText: 'text-cyan-700',
+  },
+  // 16. Ubah Ukuran Kertas (Resize)
+  {
+    id: 'resize',
+    slug: 'ubah-ukuran-kertas',
+    title: 'Ubah Ukuran Kertas',
+    shortDesc: 'Samakan format dokumen ke standar A4, US Letter, atau F4 (Folio) dengan penskalaan proporsional.',
+    category: 'organize',
+    categoryName: 'Organisir Halaman',
+    iconName: 'Scaling',
+    emoji: '📏',
+    accentBg: 'bg-zinc-100',
+    accentBorder: 'border-zinc-300',
+    accentText: 'text-zinc-800',
+  },
+  // 17. Ekstrak Gambar dari PDF
+  {
+    id: 'extract-images',
+    slug: 'ekstrak-gambar-pdf',
+    title: 'Ekstrak Gambar Asli',
+    shortDesc: 'Ambil semua aset foto, logo, dan diagram yang ada di dalam PDF dalam resolusi aslinya (.zip).',
+    category: 'convert',
+    categoryName: 'Konversi & Media',
+    iconName: 'FolderDown',
+    emoji: '📦',
+    accentBg: 'bg-emerald-50',
+    accentBorder: 'border-emerald-200',
+    accentText: 'text-emerald-800',
+  },
+  // 18. Edit Metadata PDF
+  {
+    id: 'metadata',
+    slug: 'edit-metadata',
+    title: 'Edit Metadata Dokumen',
+    shortDesc: 'Periksa & bersihkan judul dokumen (Title), nama penulis (Author), subjek, hingga keyword PDF.',
+    category: 'optimize',
+    categoryName: 'Optimasi & Teks',
+    iconName: 'FileCog',
+    emoji: '🏷️',
+    accentBg: 'bg-stone-100',
+    accentBorder: 'border-stone-300',
+    accentText: 'text-stone-800',
+  },
+];

@@ -1,0 +1,45 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Testing & Coverage
+/coverage
+
+# Next.js Build
+/.next/
+/out/
+/build
+
+# Miscellaneous
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment files
+.env
+.env*.local
+
+# Vercel
+.vercel
+
+# IDE & Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI / Antigravity local cache
+.gemini/
