@@ -44,6 +44,7 @@ import {
 import { compressPdf, CompressResult } from '@/lib/pdf/compress';
 import { PdfVisualEditor } from './PdfVisualEditor';
 import { PdfPageThumbnail } from './PdfPageThumbnail';
+import { incrementProcessedCount } from '@/lib/counter';
 
 interface ToolWorkspaceViewProps {
   tool: PdfTool;
@@ -345,6 +346,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
           });
           downloadBlob(zipBlob, `kelolapdf-gambar-${files[0].name.replace('.pdf', '')}.zip`);
           setSuccess(true);
+          incrementProcessedCount();
           confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
           return;
         }
@@ -356,6 +358,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
           });
           downloadBlob(zipBlob, `kelolapdf-ekstrak-gambar-${files[0].name.replace('.pdf', '')}.zip`);
           setSuccess(true);
+          incrementProcessedCount();
           confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
           return;
         }
@@ -369,6 +372,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
           const txtBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
           downloadBlob(txtBlob, `kelolapdf-teks-${files[0].name.replace('.pdf', '')}.txt`);
           setSuccess(true);
+          incrementProcessedCount();
           confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
           return;
         }
@@ -417,6 +421,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
       if (resultBytes) {
         downloadPdfBlob(resultBytes, outputFilename);
         setSuccess(true);
+        incrementProcessedCount();
         confetti({
           particleCount: 70,
           spread: 60,

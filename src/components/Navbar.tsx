@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { BrandLogo } from './BrandLogo';
+import { DocumentCounter } from './DocumentCounter';
 import { Sparkles, Menu, X } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -15,6 +16,7 @@ export const Navbar: React.FC = () => {
 
         {/* Right Action Links */}
         <div className="hidden md:flex items-center gap-3">
+          <DocumentCounter variant="badge" />
           <a
             href="#keunggulan"
             className="text-stone-600 hover:text-stone-900 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-stone-100 transition-colors"
