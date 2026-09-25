@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrandLogo } from './BrandLogo';
-import { ShieldCheck, Heart } from 'lucide-react';
+import { DocumentCounter } from './DocumentCounter';
+import { ShieldCheck } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -14,9 +15,12 @@ export const Footer: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Privasi Terlindungi</span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <DocumentCounter />
+            <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Privasi Terlindungi</span>
+            </div>
           </div>
         </div>
 
@@ -31,8 +35,16 @@ export const Footer: React.FC = () => {
               Keamanan Data
             </a>
             <span>•</span>
-            <span className="flex items-center gap-1">
-              Dibuat dengan <Heart className="w-3 h-3 text-red-500 fill-red-500" /> untuk Indonesia
+            <span>
+              Bagian dari{' '}
+              <a
+                href="https://ast.web.id"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-stone-600 hover:text-stone-900 underline decoration-stone-300 underline-offset-2 transition-colors"
+              >
+                @awekhstudio
+              </a>
             </span>
           </div>
         </div>

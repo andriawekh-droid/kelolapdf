@@ -6,7 +6,6 @@ import { Footer } from '@/components/Footer';
 import { ToolCard } from '@/components/ToolCard';
 import { PrivacyBanner } from '@/components/PrivacyBanner';
 import { ToolWorkspaceModal } from '@/components/ToolWorkspaceModal';
-import { DocumentCounter } from '@/components/DocumentCounter';
 import { PDF_TOOLS, CATEGORIES, PdfTool } from '@/data/tools';
 import { Search, CheckCircle } from 'lucide-react';
 
@@ -61,11 +60,6 @@ export default function HomePage() {
             Gabungkan, pisahkan, kompres, beri tanda tangan digital, hingga OCR teks hasil scan.
             Seluruh berkas diproses langsung di peramban Anda — <strong>tanpa dikirim ke server</strong>, tanpa kuota, dan bebas biaya selamanya.
           </p>
-
-          {/* Live Document Counter */}
-          <div className="pt-1 flex justify-center">
-            <DocumentCounter variant="hero" />
-          </div>
 
           {/* Search Box */}
           <div className="pt-3 max-w-xl mx-auto">

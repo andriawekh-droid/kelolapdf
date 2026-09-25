@@ -1,13 +1,10 @@
 /**
- * Utility untuk menghitung dan melacak total dokumen yang telah diproses di KelolaPDF
+ * Utility untuk menghitung dan melacak total dokumen nyata yang telah diproses di KelolaPDF
  */
 
-const BASE_COUNT = 38420;
-// Waktu patokan peluncuran
-const START_TIMESTAMP = 1774400000000;
-const STORAGE_KEY = 'kelolapdf_user_processed_count';
+const STORAGE_KEY = 'kelolapdf_real_count';
 
-export function getLocalProcessedCount(): number {
+export function getCachedCount(): number {
   if (typeof window === 'undefined') return 0;
   try {
     const val = localStorage.getItem(STORAGE_KEY);
@@ -17,30 +14,76 @@ export function getLocalProcessedCount(): number {
   }
 }
 
-export function getTotalProcessedCount(): number {
-  if (typeof window === 'undefined') return BASE_COUNT;
-  
-  // Hitung penambahan organik berbasis waktu (estimasi 1 dokumen per 7.5 menit)
-  const now = Date.now();
-  const diffMinutes = Math.max(0, Math.floor((now - START_TIMESTAMP) / (1000 * 60 * 7.5)));
-  const userCount = getLocalProcessedCount();
-
-  return BASE_COUNT + diffMinutes + userCount;
+export function setCachedCount(val: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, val.toString());
+  } catch {
+    // Ignore storage quota errors
+  }
 }
 
-export function incrementProcessedCount(): number {
-  if (typeof window === 'undefined') return BASE_COUNT;
+/**
+ * Mengambil total real count dari server API
+ */
+export async function fetchServerCount(): Promise<number> {
   try {
-    const current = getLocalProcessedCount();
-    const updated = current + 1;
-    localStorage.setItem(STORAGE_KEY, updated.toString());
-    
-    // Kirim event agar semua komponen yang menampilkan counter langsung update
-    window.dispatchEvent(new CustomEvent('kelolapdf_document_processed', { detail: { count: updated } }));
-    return getTotalProcessedCount();
-  } catch {
-    return getTotalProcessedCount();
+    const res = await fetch('/api/counter', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.count === 'number') {
+        setCachedCount(data.count);
+        return data.count;
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal mengambil hitungan real dari server:', err);
   }
+  return getCachedCount();
+}
+
+/**
+ * Menambah hitungan real dokumen setelah proses PDF selesai dan diunduh
+ */
+export async function incrementProcessedCount(): Promise<number> {
+  const current = getCachedCount();
+  const optimistic = current + 1;
+  setCachedCount(optimistic);
+
+  // Trigger event lokal langsung untuk UI responsif instan
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('kelolapdf_document_processed', {
+        detail: { count: optimistic },
+      })
+    );
+  }
+
+  // Kirim hit ke server API di latar belakang
+  try {
+    const res = await fetch('/api/counter', {
+      method: 'POST',
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.count === 'number') {
+        setCachedCount(data.count);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('kelolapdf_document_processed', {
+              detail: { count: data.count },
+            })
+          );
+        }
+        return data.count;
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal menyinkronkan increment counter ke server:', err);
+  }
+
+  return optimistic;
 }
 
 export function formatNumberId(num: number): string {
