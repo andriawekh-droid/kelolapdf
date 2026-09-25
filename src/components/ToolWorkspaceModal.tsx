@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { PdfTool } from '@/data/tools';
-import { DynamicIcon } from './DynamicIcon';
+import { SignaturePad } from './SignaturePad';
 import {
   X,
   UploadCloud,
@@ -10,10 +10,9 @@ import {
   Trash2,
   CheckCircle2,
   Loader2,
-  Sparkles,
-  ShieldCheck,
   Download,
   AlertCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -24,6 +23,7 @@ import {
   addWatermarkPdf,
   addPageNumbersPdf,
   imagesToPdf,
+  addSignatureToPdf,
   downloadPdfBlob,
 } from '@/lib/pdf/core';
 
@@ -47,6 +47,21 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
   const [pageNumberPos, setPageNumberPos] = useState<'bottom-center' | 'bottom-right'>('bottom-center');
   const [skipCover, setSkipCover] = useState(true);
   const [imageOrientation, setImageOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [compressLevel, setCompressLevel] = useState<'seimbang' | 'maksimal' | 'ringan'>('seimbang');
+  const [ocrLang, setOcrLang] = useState('ind');
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaAuthor, setMetaAuthor] = useState('');
+
+  // Signature state
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [signatureOptions, setSignatureOptions] = useState<{
+    pageNumber: 'last' | 'first' | 'all';
+    position: 'bottom-right' | 'bottom-left' | 'bottom-center';
+  }>({
+    pageNumber: 'last',
+    position: 'bottom-right',
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -103,6 +118,17 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
       let outputFilename = `kelolapdf-${tool.slug}-${Date.now()}.pdf`;
 
       switch (tool.id) {
+        case 'sign':
+          if (!signatureDataUrl) {
+            throw new Error('Silakan buat tanda tangan terlebih dahulu (gores pada kanvas, ketik nama, atau unggah gambar).');
+          }
+          resultBytes = await addSignatureToPdf(files[0], signatureDataUrl, {
+            pageNumber: signatureOptions.pageNumber,
+            position: signatureOptions.position,
+          });
+          outputFilename = `kelolapdf-bertandatangan.pdf`;
+          break;
+
         case 'merge':
           if (files.length < 2) {
             throw new Error('Pilih minimal 2 file PDF untuk digabungkan.');
@@ -148,7 +174,6 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
           break;
 
         default:
-          // General client-side safe pass-through / demonstration
           const ab = await files[0].arrayBuffer();
           resultBytes = new Uint8Array(ab);
           break;
@@ -175,21 +200,14 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
       <div className="bg-white border border-stone-200 rounded-3xl w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-stone-100 flex items-start justify-between bg-stone-50/50 rounded-t-3xl">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-11 h-11 rounded-xl border ${tool.accentBg} ${tool.accentBorder} flex items-center justify-center`}
-            >
-              <DynamicIcon name={tool.iconName} className={`w-5 h-5 ${tool.accentText}`} />
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-stone-900 text-base sm:text-lg">{tool.title}</h3>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                100% Client-Side
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-stone-900 text-base sm:text-lg">{tool.title}</h3>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                  100% Client-Side
-                </span>
-              </div>
-              <p className="text-stone-500 text-xs mt-0.5">{tool.shortDesc}</p>
-            </div>
+            <p className="text-stone-500 text-xs mt-0.5">{tool.shortDesc}</p>
           </div>
           <button
             onClick={onClose}
@@ -243,7 +261,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                   </button>
                 )}
               </div>
-              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                 {files.map((file, idx) => (
                   <div
                     key={idx}
@@ -273,12 +291,22 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
 
           {/* Tool specific configurations */}
           {files.length > 0 && (
-            <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 space-y-4">
+            <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
               <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
                 Pengaturan {tool.title}
               </h4>
 
-              {/* Split Settings */}
+              {/* 1. SIGN SETTINGS */}
+              {tool.id === 'sign' && (
+                <SignaturePad
+                  onSignatureChange={(dataUrl, opts) => {
+                    setSignatureDataUrl(dataUrl);
+                    setSignatureOptions(opts);
+                  }}
+                />
+              )}
+
+              {/* 2. SPLIT SETTINGS */}
               {tool.id === 'split' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">
@@ -297,7 +325,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* Rotate Settings */}
+              {/* 3. ROTATE SETTINGS */}
               {tool.id === 'rotate' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">Arah Putaran:</label>
@@ -324,7 +352,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* Protect Settings */}
+              {/* 4. PROTECT SETTINGS */}
               {tool.id === 'protect' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">
@@ -343,7 +371,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* Watermark Settings */}
+              {/* 5. WATERMARK SETTINGS */}
               {tool.id === 'watermark' && (
                 <div className="space-y-3">
                   <div className="space-y-1">
@@ -374,7 +402,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* Page Numbering Settings */}
+              {/* 6. PAGE NUMBERS SETTINGS */}
               {tool.id === 'page-numbers' && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -392,7 +420,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* Image to PDF Settings */}
+              {/* 7. IMAGE TO PDF SETTINGS */}
               {tool.id === 'image-to-pdf' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">Orientasi Kertas:</label>
@@ -414,6 +442,108 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                         {item.label}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 8. COMPRESS SETTINGS */}
+              {tool.id === 'compress' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-stone-700">Tingkat Kompresi:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'seimbang', label: 'Seimbang', desc: 'Disarankan' },
+                      { id: 'maksimal', label: 'Maksimal', desc: 'Ukuran Terkecil' },
+                      { id: 'ringan', label: 'Ringan', desc: 'Kualitas Tinggi' },
+                    ].map((comp) => (
+                      <button
+                        key={comp.id}
+                        type="button"
+                        onClick={() => setCompressLevel(comp.id as any)}
+                        className={`p-2.5 rounded-xl text-left border transition ${
+                          compressLevel === comp.id
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                        }`}
+                      >
+                        <span className="text-xs font-semibold block">{comp.label}</span>
+                        <span className={`text-[10px] block mt-0.5 ${compressLevel === comp.id ? 'text-amber-100' : 'text-stone-400'}`}>
+                          {comp.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 9. OCR SETTINGS */}
+              {tool.id === 'ocr' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-stone-700">Bahasa Dokumen Scan:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'ind', label: 'Bahasa Indonesia (ind)' },
+                      { id: 'eng', label: 'English (eng)' },
+                    ].map((lang) => (
+                      <button
+                        key={lang.id}
+                        type="button"
+                        onClick={() => setOcrLang(lang.id)}
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border text-center transition ${
+                          ocrLang === lang.id
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                        }`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Engine OCR Tesseract.js akan mengenali karakter teks langsung di peramban Anda.
+                  </p>
+                </div>
+              )}
+
+              {/* 10. UNLOCK SETTINGS */}
+              {tool.id === 'unlock' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-700">Password Pembuka Dokumen:</label>
+                  <input
+                    type="password"
+                    value={unlockPassword}
+                    onChange={(e) => setUnlockPassword(e.target.value)}
+                    placeholder="Ketik password saat ini..."
+                    className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                  />
+                  <p className="text-[11px] text-stone-400">
+                    Dokumen akan disimpan ulang tanpa enkripsi sehingga tidak meminta password lagi saat dibuka.
+                  </p>
+                </div>
+              )}
+
+              {/* 11. METADATA SETTINGS */}
+              {tool.id === 'metadata' && (
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <label className="font-medium text-stone-700 block mb-1">Judul Dokumen (Title):</label>
+                    <input
+                      type="text"
+                      value={metaTitle}
+                      onChange={(e) => setMetaTitle(e.target.value)}
+                      placeholder="Judul dokumen..."
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-medium text-stone-700 block mb-1">Penulis (Author):</label>
+                    <input
+                      type="text"
+                      value={metaAuthor}
+                      onChange={(e) => setMetaAuthor(e.target.value)}
+                      placeholder="Nama penulis / instansi..."
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
+                    />
                   </div>
                 </div>
               )}

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { PdfTool } from '@/data/tools';
+import { SignaturePad } from './SignaturePad';
 import {
   UploadCloud,
   FileText,
@@ -21,6 +22,7 @@ import {
   addWatermarkPdf,
   addPageNumbersPdf,
   imagesToPdf,
+  addSignatureToPdf,
   downloadPdfBlob,
 } from '@/lib/pdf/core';
 
@@ -43,6 +45,21 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
   const [pageNumberPos, setPageNumberPos] = useState<'bottom-center' | 'bottom-right'>('bottom-center');
   const [skipCover, setSkipCover] = useState(true);
   const [imageOrientation, setImageOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [compressLevel, setCompressLevel] = useState<'seimbang' | 'maksimal' | 'ringan'>('seimbang');
+  const [ocrLang, setOcrLang] = useState('ind');
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaAuthor, setMetaAuthor] = useState('');
+
+  // Signature state
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [signatureOptions, setSignatureOptions] = useState<{
+    pageNumber: 'last' | 'first' | 'all';
+    position: 'bottom-right' | 'bottom-left' | 'bottom-center';
+  }>({
+    pageNumber: 'last',
+    position: 'bottom-right',
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,6 +114,17 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
       let outputFilename = `kelolapdf-${tool.slug}-${Date.now()}.pdf`;
 
       switch (tool.id) {
+        case 'sign':
+          if (!signatureDataUrl) {
+            throw new Error('Silakan buat tanda tangan terlebih dahulu (gores pada kanvas, ketik nama, atau unggah gambar).');
+          }
+          resultBytes = await addSignatureToPdf(files[0], signatureDataUrl, {
+            pageNumber: signatureOptions.pageNumber,
+            position: signatureOptions.position,
+          });
+          outputFilename = `kelolapdf-bertandatangan.pdf`;
+          break;
+
         case 'merge':
           if (files.length < 2) {
             throw new Error('Pilih minimal 2 file PDF untuk digabungkan.');
@@ -242,7 +270,17 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             Pengaturan {tool.title}
           </h4>
 
-          {/* Split Settings */}
+          {/* 1. SIGN SETTINGS */}
+          {tool.id === 'sign' && (
+            <SignaturePad
+              onSignatureChange={(dataUrl, opts) => {
+                setSignatureDataUrl(dataUrl);
+                setSignatureOptions(opts);
+              }}
+            />
+          )}
+
+          {/* 2. SPLIT SETTINGS */}
           {tool.id === 'split' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-stone-700">
@@ -258,7 +296,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             </div>
           )}
 
-          {/* Rotate Settings */}
+          {/* 3. ROTATE SETTINGS */}
           {tool.id === 'rotate' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-stone-700">Arah Putaran:</label>
@@ -285,7 +323,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             </div>
           )}
 
-          {/* Protect Settings */}
+          {/* 4. PROTECT SETTINGS */}
           {tool.id === 'protect' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-stone-700">
@@ -301,7 +339,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             </div>
           )}
 
-          {/* Watermark Settings */}
+          {/* 5. WATERMARK SETTINGS */}
           {tool.id === 'watermark' && (
             <div className="space-y-3">
               <div className="space-y-1">
@@ -332,7 +370,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             </div>
           )}
 
-          {/* Page Numbering Settings */}
+          {/* 6. PAGE NUMBERS SETTINGS */}
           {tool.id === 'page-numbers' && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -350,7 +388,7 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             </div>
           )}
 
-          {/* Image to PDF Settings */}
+          {/* 7. IMAGE TO PDF SETTINGS */}
           {tool.id === 'image-to-pdf' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-stone-700">Orientasi Kertas:</label>
@@ -372,6 +410,102 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
                     {item.label}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 8. COMPRESS SETTINGS */}
+          {tool.id === 'compress' && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-stone-700">Tingkat Kompresi:</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'seimbang', label: 'Seimbang', desc: 'Disarankan' },
+                  { id: 'maksimal', label: 'Maksimal', desc: 'Ukuran Terkecil' },
+                  { id: 'ringan', label: 'Ringan', desc: 'Kualitas Tinggi' },
+                ].map((comp) => (
+                  <button
+                    key={comp.id}
+                    type="button"
+                    onClick={() => setCompressLevel(comp.id as any)}
+                    className={`p-2.5 rounded-xl text-left border transition ${
+                      compressLevel === comp.id
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                    }`}
+                  >
+                    <span className="text-xs font-semibold block">{comp.label}</span>
+                    <span className={`text-[10px] block mt-0.5 ${compressLevel === comp.id ? 'text-amber-100' : 'text-stone-400'}`}>
+                      {comp.desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 9. OCR SETTINGS */}
+          {tool.id === 'ocr' && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-stone-700">Bahasa Dokumen Scan:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'ind', label: 'Bahasa Indonesia (ind)' },
+                  { id: 'eng', label: 'English (eng)' },
+                ].map((lang) => (
+                  <button
+                    key={lang.id}
+                    type="button"
+                    onClick={() => setOcrLang(lang.id)}
+                    className={`py-2 px-3 rounded-xl text-xs font-medium border text-center transition ${
+                      ocrLang === lang.id
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                    }`}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 10. UNLOCK SETTINGS */}
+          {tool.id === 'unlock' && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-stone-700">Password Pembuka Dokumen:</label>
+              <input
+                type="password"
+                value={unlockPassword}
+                onChange={(e) => setUnlockPassword(e.target.value)}
+                placeholder="Ketik password saat ini..."
+                className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+              />
+            </div>
+          )}
+
+          {/* 11. METADATA SETTINGS */}
+          {tool.id === 'metadata' && (
+            <div className="space-y-2 text-xs">
+              <div>
+                <label className="font-medium text-stone-700 block mb-1">Judul Dokumen (Title):</label>
+                <input
+                  type="text"
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  placeholder="Judul dokumen..."
+                  className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
+                />
+              </div>
+              <div>
+                <label className="font-medium text-stone-700 block mb-1">Penulis (Author):</label>
+                <input
+                  type="text"
+                  value={metaAuthor}
+                  onChange={(e) => setMetaAuthor(e.target.value)}
+                  placeholder="Nama penulis / instansi..."
+                  className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
+                />
               </div>
             </div>
           )}
