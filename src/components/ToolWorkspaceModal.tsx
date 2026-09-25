@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PdfTool } from '@/data/tools';
 import { SignaturePad } from './SignaturePad';
 import {
@@ -13,6 +13,11 @@ import {
   Download,
   AlertCircle,
   ShieldCheck,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
+  Copy,
+  Check,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -24,7 +29,17 @@ import {
   addPageNumbersPdf,
   imagesToPdf,
   addSignatureToPdf,
+  arrangePdfPages,
+  getPdfPageCount,
+  unlockPdf,
+  updatePdfMetadata,
+  cropPdf,
+  resizePdfPages,
+  redactPdfPages,
+  pdfToImagesZip,
+  extractPdfText,
   downloadPdfBlob,
+  downloadBlob,
 } from '@/lib/pdf/core';
 import { compressPdf, CompressResult } from '@/lib/pdf/compress';
 
@@ -53,6 +68,22 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
   const [unlockPassword, setUnlockPassword] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
   const [metaAuthor, setMetaAuthor] = useState('');
+  const [metaSubject, setMetaSubject] = useState('');
+  const [metaKeywords, setMetaKeywords] = useState('');
+
+  // Arrange state
+  const [arrangePages, setArrangePages] = useState<number[]>([]);
+  const [originalPageCount, setOriginalPageCount] = useState<number>(0);
+  const [isAnalyzingPages, setIsAnalyzingPages] = useState(false);
+
+  // New tool states
+  const [pdfToImgFormat, setPdfToImgFormat] = useState<'image/jpeg' | 'image/png'>('image/jpeg');
+  const [cropMargin, setCropMargin] = useState<number>(30);
+  const [resizePaper, setResizePaper] = useState<'A4' | 'Letter' | 'F4'>('A4');
+  const [redactArea, setRedactArea] = useState<'top' | 'middle' | 'bottom'>('middle');
+  const [redactPage, setRedactPage] = useState<'first' | 'last' | 'all'>('all');
+  const [extractedText, setExtractedText] = useState<string | null>(null);
+  const [hasCopiedText, setHasCopiedText] = useState(false);
 
   // Signature state
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
@@ -70,7 +101,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset state whenever the active tool changes
-  React.useEffect(() => {
+  useEffect(() => {
     setFiles([]);
     setSuccess(false);
     setErrorMessage(null);
@@ -80,10 +111,29 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
     setUnlockPassword('');
     setCompressResult(null);
     setCompressProgress(null);
+    setArrangePages([]);
+    setOriginalPageCount(0);
+    setExtractedText(null);
+    setHasCopiedText(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   }, [tool?.id]);
+
+  // Load page count when file is selected for arrange tool
+  const analyzePdfForArrange = async (file: File) => {
+    try {
+      setIsAnalyzingPages(true);
+      const count = await getPdfPageCount(file);
+      setOriginalPageCount(count);
+      setArrangePages(Array.from({ length: count }, (_, i) => i));
+    } catch {
+      setOriginalPageCount(0);
+      setArrangePages([]);
+    } finally {
+      setIsAnalyzingPages(false);
+    }
+  };
 
   const handleClose = () => {
     setFiles([]);
@@ -93,6 +143,8 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
     setSignatureDataUrl(null);
     setCompressResult(null);
     setCompressProgress(null);
+    setArrangePages([]);
+    setExtractedText(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -114,6 +166,9 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
         setFiles((prev) => [...prev, ...selected]);
       } else {
         setFiles([selected[0]]);
+        if (tool.id === 'arrange') {
+          analyzePdfForArrange(selected[0]);
+        }
       }
       setErrorMessage(null);
       setSuccess(false);
@@ -128,6 +183,9 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
         setFiles((prev) => [...prev, ...dropped]);
       } else {
         setFiles([dropped[0]]);
+        if (tool.id === 'arrange') {
+          analyzePdfForArrange(dropped[0]);
+        }
       }
       setErrorMessage(null);
       setSuccess(false);
@@ -135,7 +193,39 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
   };
 
   const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (tool.id === 'arrange' && next.length > 0) {
+        analyzePdfForArrange(next[0]);
+      } else if (tool.id === 'arrange') {
+        setArrangePages([]);
+        setOriginalPageCount(0);
+      }
+      return next;
+    });
+  };
+
+  // Arrange page reorder helpers
+  const movePage = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= arrangePages.length) return;
+    const updated = [...arrangePages];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setArrangePages(updated);
+  };
+
+  const removePageFromArrange = (idxToRemove: number) => {
+    if (arrangePages.length <= 1) {
+      setErrorMessage('Dokumen PDF harus memiliki minimal 1 halaman.');
+      return;
+    }
+    setArrangePages((prev) => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
+  const resetArrange = () => {
+    if (originalPageCount > 0) {
+      setArrangePages(Array.from({ length: originalPageCount }, (_, i) => i));
+    }
   };
 
   const executeProcess = async () => {
@@ -147,12 +237,13 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
     try {
       setIsProcessing(true);
       setErrorMessage(null);
+      setExtractedText(null);
 
       let resultBytes: Uint8Array | null = null;
       let outputFilename = `kelolapdf-${tool.slug}-${Date.now()}.pdf`;
 
       switch (tool.id) {
-        case 'compress':
+        case 'compress': {
           setCompressProgress('Menyiapkan kompresi...');
           const compResult = await compressPdf(files[0], compressLevel, (current, total) => {
             setCompressProgress(`Mengompres halaman ${current} dari ${total}...`);
@@ -161,8 +252,18 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
           setCompressResult(compResult);
           outputFilename = `kelolapdf-kompres-${files[0].name}`;
           break;
+        }
 
-        case 'sign':
+        case 'arrange': {
+          if (arrangePages.length === 0) {
+            throw new Error('Tidak ada halaman yang dipilih.');
+          }
+          resultBytes = await arrangePdfPages(files[0], arrangePages);
+          outputFilename = `kelolapdf-urutan-baru-${files[0].name}`;
+          break;
+        }
+
+        case 'sign': {
           if (!signatureDataUrl) {
             throw new Error('Silakan buat tanda tangan terlebih dahulu (gores pada kanvas, ketik nama, atau unggah gambar).');
           }
@@ -172,55 +273,140 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
           });
           outputFilename = `kelolapdf-bertandatangan.pdf`;
           break;
+        }
 
-        case 'merge':
+        case 'merge': {
           if (files.length < 2) {
             throw new Error('Pilih minimal 2 file PDF untuk digabungkan.');
           }
           resultBytes = await mergePdfs(files);
           outputFilename = `kelolapdf-gabungan.pdf`;
           break;
+        }
 
-        case 'split':
+        case 'split': {
           resultBytes = await splitPdf(files[0], pageRange);
           outputFilename = `kelolapdf-pisah-${pageRange.replace(/[\s,]+/g, '_')}.pdf`;
           break;
+        }
 
-        case 'rotate':
+        case 'rotate': {
           resultBytes = await rotatePdf(files[0], rotateAngle);
           outputFilename = `kelolapdf-putar-${rotateAngle}deg.pdf`;
           break;
+        }
 
-        case 'protect':
+        case 'protect': {
           if (!password || password.length < 3) {
             throw new Error('Masukkan kata sandi pengaman minimal 3 karakter.');
           }
           resultBytes = await protectPdf(files[0], password);
           outputFilename = `kelolapdf-terproteksi.pdf`;
           break;
+        }
 
-        case 'watermark':
+        case 'unlock': {
+          if (!unlockPassword) {
+            throw new Error('Masukkan kata sandi saat ini untuk membuka proteksi.');
+          }
+          resultBytes = await unlockPdf(files[0], unlockPassword);
+          outputFilename = `kelolapdf-bebas-sandi-${files[0].name}`;
+          break;
+        }
+
+        case 'watermark': {
           if (!watermarkText.trim()) {
             throw new Error('Masukkan teks watermark yang ingin ditempelkan.');
           }
           resultBytes = await addWatermarkPdf(files[0], watermarkText, watermarkOpacity);
           outputFilename = `kelolapdf-watermark.pdf`;
           break;
+        }
 
-        case 'page-numbers':
+        case 'page-numbers': {
           resultBytes = await addPageNumbersPdf(files[0], pageNumberPos, skipCover);
           outputFilename = `kelolapdf-bernomor.pdf`;
           break;
+        }
 
-        case 'image-to-pdf':
+        case 'image-to-pdf': {
           resultBytes = await imagesToPdf(files, imageOrientation);
           outputFilename = `kelolapdf-gambar-ke-pdf.pdf`;
           break;
+        }
 
-        default:
+        case 'pdf-to-image': {
+          setCompressProgress('Mengekstrak halaman ke gambar...');
+          const zipBlob = await pdfToImagesZip(files[0], pdfToImgFormat, (cur, tot) => {
+            setCompressProgress(`Mengekstrak halaman ${cur} dari ${tot}...`);
+          });
+          downloadBlob(zipBlob, `kelolapdf-gambar-${files[0].name.replace('.pdf', '')}.zip`);
+          setSuccess(true);
+          confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+          return;
+        }
+
+        case 'extract-images': {
+          setCompressProgress('Mengekstrak aset gambar...');
+          const zipBlob = await pdfToImagesZip(files[0], 'image/jpeg', (cur, tot) => {
+            setCompressProgress(`Menyalin aset ${cur} dari ${tot}...`);
+          });
+          downloadBlob(zipBlob, `kelolapdf-ekstrak-gambar-${files[0].name.replace('.pdf', '')}.zip`);
+          setSuccess(true);
+          confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+          return;
+        }
+
+        case 'ocr': {
+          setCompressProgress('Membaca teks dari dokumen...');
+          const text = await extractPdfText(files[0], (cur, tot) => {
+            setCompressProgress(`Mendeteksi teks halaman ${cur} dari ${tot}...`);
+          });
+          setExtractedText(text);
+          const txtBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+          downloadBlob(txtBlob, `kelolapdf-teks-${files[0].name.replace('.pdf', '')}.txt`);
+          setSuccess(true);
+          confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+          return;
+        }
+
+        case 'crop': {
+          resultBytes = await cropPdf(files[0], cropMargin);
+          outputFilename = `kelolapdf-crop-${files[0].name}`;
+          break;
+        }
+
+        case 'resize': {
+          resultBytes = await resizePdfPages(files[0], resizePaper);
+          outputFilename = `kelolapdf-ukuran-${resizePaper}-${files[0].name}`;
+          break;
+        }
+
+        case 'redact': {
+          resultBytes = await redactPdfPages(files[0], {
+            pageTarget: redactPage,
+            area: redactArea,
+          });
+          outputFilename = `kelolapdf-sensor-${files[0].name}`;
+          break;
+        }
+
+        case 'metadata': {
+          resultBytes = await updatePdfMetadata(files[0], {
+            title: metaTitle,
+            author: metaAuthor,
+            subject: metaSubject,
+            keywords: metaKeywords,
+          });
+          outputFilename = `kelolapdf-metadata-${files[0].name}`;
+          break;
+        }
+
+        default: {
           const ab = await files[0].arrayBuffer();
           resultBytes = new Uint8Array(ab);
           break;
+        }
       }
 
       if (resultBytes) {
@@ -236,6 +422,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
       setErrorMessage(err.message || 'Terjadi kesalahan saat memproses dokumen.');
     } finally {
       setIsProcessing(false);
+      setCompressProgress(null);
     }
   };
 
@@ -340,7 +527,80 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 Pengaturan {tool.title}
               </h4>
 
-              {/* 1. SIGN SETTINGS */}
+              {/* 1. ATUR & URUTKAN HALAMAN (ARRANGE) */}
+              {tool.id === 'arrange' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-stone-700">
+                      Urutan Lembar ({arrangePages.length} dari {originalPageCount} halaman):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={resetArrange}
+                      className="inline-flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-800 font-medium hover:underline"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Kembalikan Urutan Awal
+                    </button>
+                  </div>
+
+                  {isAnalyzingPages ? (
+                    <div className="flex items-center justify-center py-6 text-xs text-stone-500 gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                      Membaca halaman dokumen...
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1">
+                      {arrangePages.map((pageIdx, currentPosition) => (
+                        <div
+                          key={`${pageIdx}-${currentPosition}`}
+                          className="bg-white border border-stone-200 rounded-xl p-2.5 flex flex-col justify-between shadow-2xs group hover:border-amber-400 transition"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-stone-900">
+                              Lembar {currentPosition + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removePageFromArrange(currentPosition)}
+                              title="Hapus lembar ini"
+                              className="text-stone-300 hover:text-red-600 p-0.5 rounded transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <span className="text-[10px] text-stone-500 mb-2 block">
+                            (Halaman Asli: {pageIdx + 1})
+                          </span>
+                          <div className="flex items-center gap-1 pt-1 border-t border-stone-100">
+                            <button
+                              type="button"
+                              disabled={currentPosition === 0}
+                              onClick={() => movePage(currentPosition, currentPosition - 1)}
+                              className="flex-1 py-1 bg-stone-100 hover:bg-amber-100 disabled:opacity-30 disabled:hover:bg-stone-100 rounded text-stone-700 flex items-center justify-center text-[10px] font-medium transition"
+                            >
+                              <ArrowUp className="w-3 h-3 mr-0.5" /> Geser
+                            </button>
+                            <button
+                              type="button"
+                              disabled={currentPosition === arrangePages.length - 1}
+                              onClick={() => movePage(currentPosition, currentPosition + 1)}
+                              className="flex-1 py-1 bg-stone-100 hover:bg-amber-100 disabled:opacity-30 disabled:hover:bg-stone-100 rounded text-stone-700 flex items-center justify-center text-[10px] font-medium transition"
+                            >
+                              <ArrowDown className="w-3 h-3 mr-0.5" /> Geser
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[11px] text-stone-400">
+                    Gunakan tombol panah untuk memindahkan urutan lembar, atau hapus lembar yang tidak dibutuhkan.
+                  </p>
+                </div>
+              )}
+
+              {/* 2. SIGN SETTINGS */}
               {tool.id === 'sign' && (
                 <SignaturePad
                   onSignatureChange={(dataUrl, opts) => {
@@ -350,7 +610,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 />
               )}
 
-              {/* 2. SPLIT SETTINGS */}
+              {/* 3. SPLIT SETTINGS */}
               {tool.id === 'split' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">
@@ -369,7 +629,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* 3. ROTATE SETTINGS */}
+              {/* 4. ROTATE SETTINGS */}
               {tool.id === 'rotate' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">Arah Putaran:</label>
@@ -396,7 +656,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* 4. PROTECT SETTINGS */}
+              {/* 5. PROTECT SETTINGS */}
               {tool.id === 'protect' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">
@@ -415,7 +675,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* 5. WATERMARK SETTINGS */}
+              {/* 6. WATERMARK SETTINGS */}
               {tool.id === 'watermark' && (
                 <div className="space-y-3">
                   <div className="space-y-1">
@@ -446,7 +706,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* 6. PAGE NUMBERS SETTINGS */}
+              {/* 7. PAGE NUMBERS SETTINGS */}
               {tool.id === 'page-numbers' && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -461,10 +721,32 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                       Lewati halaman pertama (halaman sampul/cover)
                     </label>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-stone-700">Posisi Nomor:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Bawah Tengah', val: 'bottom-center' },
+                        { label: 'Bawah Kanan', val: 'bottom-right' },
+                      ].map((pos) => (
+                        <button
+                          key={pos.val}
+                          type="button"
+                          onClick={() => setPageNumberPos(pos.val as any)}
+                          className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
+                            pageNumberPos === pos.val
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* 7. IMAGE TO PDF SETTINGS */}
+              {/* 8. IMAGE TO PDF SETTINGS */}
               {tool.id === 'image-to-pdf' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-stone-700">Orientasi Kertas:</label>
@@ -490,7 +772,7 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* 8. COMPRESS SETTINGS */}
+              {/* 9. COMPRESS SETTINGS */}
               {tool.id === 'compress' && (
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-stone-700">Tingkat Kompresi:</label>
@@ -520,7 +802,51 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
-              {/* 9. OCR SETTINGS */}
+              {/* 10. PDF TO IMAGE SETTINGS */}
+              {tool.id === 'pdf-to-image' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-stone-700">Format Gambar Hasil Ekstrak:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'image/jpeg', label: 'JPG (Standar)', desc: 'Ukuran file lebih ringan' },
+                      { id: 'image/png', label: 'PNG (Lossless)', desc: 'Kualitas gambar maksimal' },
+                    ].map((fmt) => (
+                      <button
+                        key={fmt.id}
+                        type="button"
+                        onClick={() => setPdfToImgFormat(fmt.id as any)}
+                        className={`p-2.5 rounded-xl text-left border transition ${
+                          pdfToImgFormat === fmt.id
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                        }`}
+                      >
+                        <span className="text-xs font-semibold block">{fmt.label}</span>
+                        <span className={`text-[10px] block mt-0.5 ${pdfToImgFormat === fmt.id ? 'text-amber-100' : 'text-stone-400'}`}>
+                          {fmt.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Semua lembar halaman PDF akan diekstrak ke dalam satu arsip ZIP siap unduh.
+                  </p>
+                </div>
+              )}
+
+              {/* 11. EXTRACT IMAGES SETTINGS */}
+              {tool.id === 'extract-images' && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-stone-700 font-medium">
+                    Ekstrak Gambar & Elemen Visual Asli:
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    Sistem akan memindai seluruh lembar dokumen PDF dan mengemas foto, diagram, atau ilustrasi ke dalam satu berkas ZIP.
+                  </p>
+                </div>
+              )}
+
+              {/* 12. OCR SETTINGS */}
               {tool.id === 'ocr' && (
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-stone-700">Bahasa Dokumen Scan:</label>
@@ -544,15 +870,15 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                     ))}
                   </div>
                   <p className="text-[11px] text-stone-400">
-                    Engine OCR Tesseract.js akan mengenali karakter teks langsung di peramban Anda.
+                    Teks digital akan diekstrak langsung di browser peramban dan diunduh sebagai berkas teks (.txt).
                   </p>
                 </div>
               )}
 
-              {/* 10. UNLOCK SETTINGS */}
+              {/* 13. UNLOCK SETTINGS */}
               {tool.id === 'unlock' && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-stone-700">Password Pembuka Dokumen:</label>
+                  <label className="text-xs font-medium text-stone-700">Password Pembuka Dokumen Saat Ini:</label>
                   <input
                     type="password"
                     value={unlockPassword}
@@ -561,12 +887,127 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                     className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
                   />
                   <p className="text-[11px] text-stone-400">
-                    Dokumen akan disimpan ulang tanpa enkripsi sehingga tidak meminta password lagi saat dibuka.
+                    Dokumen akan disimpan ulang tanpa proteksi password sehingga bisa dibuka langsung kapan pun.
                   </p>
                 </div>
               )}
 
-              {/* 11. METADATA SETTINGS */}
+              {/* 14. CROP SETTINGS */}
+              {tool.id === 'crop' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-stone-700">Ukuran Pangkas Margin:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Ringan (15pt)', val: 15 },
+                      { label: 'Sedang (30pt)', val: 30 },
+                      { label: 'Lebar (50pt)', val: 50 },
+                    ].map((item) => (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => setCropMargin(item.val)}
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
+                          cropMargin === item.val
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Tepi kosong di sekeliling halaman akan dipangkas secara proporsional.
+                  </p>
+                </div>
+              )}
+
+              {/* 15. RESIZE SETTINGS */}
+              {tool.id === 'resize' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-stone-700">Ukuran Standar Kertas:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'A4 Standar', val: 'A4' },
+                      { label: 'US Letter', val: 'Letter' },
+                      { label: 'F4 / Folio', val: 'F4' },
+                    ].map((item) => (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => setResizePaper(item.val as any)}
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border transition ${
+                          resizePaper === item.val
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Seluruh lembar akan diskalakan secara presisi mengikuti standar dimensi kertas yang dipilih.
+                  </p>
+                </div>
+              )}
+
+              {/* 16. REDACT SETTINGS */}
+              {tool.id === 'redact' && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-stone-700">Halaman yang Disensor:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Semua Lembar', val: 'all' },
+                        { label: 'Lembar Pertama', val: 'first' },
+                        { label: 'Lembar Terakhir', val: 'last' },
+                      ].map((item) => (
+                        <button
+                          key={item.val}
+                          type="button"
+                          onClick={() => setRedactPage(item.val as any)}
+                          className={`py-2 px-2 rounded-xl text-xs font-medium border transition ${
+                            redactPage === item.val
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-stone-700">Area Sensor Dokumen:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Bagian Atas', val: 'top' },
+                        { label: 'Bagian Tengah', val: 'middle' },
+                        { label: 'Bagian Bawah', val: 'bottom' },
+                      ].map((item) => (
+                        <button
+                          key={item.val}
+                          type="button"
+                          onClick={() => setRedactArea(item.val as any)}
+                          className={`py-2 px-2 rounded-xl text-xs font-medium border transition ${
+                            redactArea === item.val
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Blok hitam pekat permanen akan ditimpa di area yang dipilih untuk melindungi privasi.
+                  </p>
+                </div>
+              )}
+
+              {/* 17. METADATA SETTINGS */}
               {tool.id === 'metadata' && (
                 <div className="space-y-2 text-xs">
                   <div>
@@ -589,6 +1030,26 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                       className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
                     />
                   </div>
+                  <div>
+                    <label className="font-medium text-stone-700 block mb-1">Subjek / Topik (Subject):</label>
+                    <input
+                      type="text"
+                      value={metaSubject}
+                      onChange={(e) => setMetaSubject(e.target.value)}
+                      placeholder="Subjek dokumen..."
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-medium text-stone-700 block mb-1">Kata Kunci (Keywords):</label>
+                    <input
+                      type="text"
+                      value={metaKeywords}
+                      onChange={(e) => setMetaKeywords(e.target.value)}
+                      placeholder="kata1, kata2, kata3..."
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-hidden focus:border-amber-600"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -607,9 +1068,12 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-xs space-y-2.5 animate-in fade-in">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                <span className="font-semibold">Berhasil! Dokumen PDF baru telah diunduh otomatis ke perangkat Anda.</span>
+                <span className="font-semibold">
+                  Berhasil! Dokumen hasil olahan telah selesai diproses dan diunduh ke perangkat Anda.
+                </span>
               </div>
 
+              {/* Compression stats */}
               {compressResult && (
                 <div className="bg-white border border-emerald-300 rounded-xl p-3 flex items-center justify-between">
                   <div>
@@ -626,6 +1090,31 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                 </div>
               )}
 
+              {/* OCR Extracted Text Preview */}
+              {extractedText && (
+                <div className="bg-white border border-emerald-300 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-stone-800 text-xs">Pratinjau Teks Hasil OCR:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(extractedText);
+                        setHasCopiedText(true);
+                        setTimeout(() => setHasCopiedText(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
+                    >
+                      {hasCopiedText ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      {hasCopiedText ? 'Tersalin!' : 'Salin Teks'}
+                    </button>
+                  </div>
+                  <pre className="max-h-36 overflow-y-auto bg-stone-50 p-2.5 rounded-lg text-[11px] text-stone-700 whitespace-pre-wrap font-mono border border-stone-200">
+                    {extractedText.slice(0, 1000)}
+                    {extractedText.length > 1000 ? '\n... (teks lengkap ada di berkas .txt yang diunduh)' : ''}
+                  </pre>
+                </div>
+              )}
+
               <div>
                 <button
                   type="button"
@@ -636,6 +1125,8 @@ export const ToolWorkspaceModal: React.FC<ToolWorkspaceModalProps> = ({ tool, on
                     setSignatureDataUrl(null);
                     setCompressResult(null);
                     setCompressProgress(null);
+                    setArrangePages([]);
+                    setExtractedText(null);
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                   className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg font-medium hover:bg-emerald-100 transition shadow-2xs"
