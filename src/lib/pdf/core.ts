@@ -220,9 +220,15 @@ export async function addSignatureToPdf(
   file: File,
   signatureDataUrl: string,
   options: {
-    pageNumber: 'last' | 'first' | 'all' | number;
-    position: 'bottom-right' | 'bottom-left' | 'bottom-center';
+    pageNumber?: 'last' | 'first' | 'all' | number;
+    position?: 'bottom-right' | 'bottom-left' | 'bottom-center';
     scale?: number;
+    customPlacement?: {
+      pageNumber: number; // 1-indexed
+      xPercent: number;   // 0 - 100 % from left
+      yPercent: number;   // 0 - 100 % from top
+      widthPercent: number; // % width of page
+    };
   }
 ): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
@@ -240,6 +246,29 @@ export async function addSignatureToPdf(
   const pngImage = await pdfDoc.embedPng(bytes);
   const totalPages = pdfDoc.getPageCount();
 
+  // If user used visual drag-and-drop placement
+  if (options.customPlacement) {
+    const { pageNumber, xPercent, yPercent, widthPercent } = options.customPlacement;
+    const targetIdx = Math.max(0, Math.min(totalPages - 1, pageNumber - 1));
+    const page = pdfDoc.getPage(targetIdx);
+    const { width, height } = page.getSize();
+
+    const sigWidth = (widthPercent / 100) * width;
+    const sigHeight = (pngImage.height / pngImage.width) * sigWidth;
+    const x = (xPercent / 100) * width;
+    // PDF coordinate (0,0) is bottom-left, DOM coordinate is top-left
+    const y = height - ((yPercent / 100) * height) - sigHeight;
+
+    page.drawImage(pngImage, {
+      x: Math.max(0, x),
+      y: Math.max(0, y),
+      width: sigWidth,
+      height: sigHeight,
+    });
+
+    return await pdfDoc.save();
+  }
+
   const pagesToSign: number[] = [];
   if (options.pageNumber === 'last') {
     pagesToSign.push(totalPages - 1);
@@ -247,9 +276,11 @@ export async function addSignatureToPdf(
     pagesToSign.push(0);
   } else if (options.pageNumber === 'all') {
     for (let i = 0; i < totalPages; i++) pagesToSign.push(i);
-  } else {
+  } else if (typeof options.pageNumber === 'number') {
     const p = Math.max(0, Math.min(totalPages - 1, Number(options.pageNumber) - 1));
     pagesToSign.push(p);
+  } else {
+    pagesToSign.push(totalPages - 1);
   }
 
   const sigWidth = 140 * (options.scale || 1);
@@ -394,20 +425,56 @@ export async function resizePdfPages(
   return await outDoc.save();
 }
 
+export interface RedactBoxItem {
+  id?: string;
+  pageNumber: number; // 1-indexed
+  xPercent: number;   // 0 - 100 % from left
+  yPercent: number;   // 0 - 100 % from top
+  widthPercent: number; // % width of page
+  heightPercent: number; // % height of page
+}
+
 /**
  * 14. Sensor Data Rahasia (Redact)
  */
 export async function redactPdfPages(
   file: File,
   options: {
-    pageTarget: 'first' | 'last' | 'all';
-    area: 'top' | 'middle' | 'bottom';
+    pageTarget?: 'first' | 'last' | 'all';
+    area?: 'top' | 'middle' | 'bottom';
+    customBoxes?: RedactBoxItem[];
   }
 ): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
   const doc = await PDFDocument.load(arrayBuffer);
   const total = doc.getPageCount();
 
+  // If user placed custom visual blackout boxes
+  if (options.customBoxes && options.customBoxes.length > 0) {
+    for (const box of options.customBoxes) {
+      const pageIdx = Math.max(0, Math.min(total - 1, box.pageNumber - 1));
+      const page = doc.getPage(pageIdx);
+      const { width, height } = page.getSize();
+
+      const boxW = (box.widthPercent / 100) * width;
+      const boxH = (box.heightPercent / 100) * height;
+      const x = (box.xPercent / 100) * width;
+      // Convert top-left DOM coordinate to bottom-left PDF coordinate
+      const y = height - ((box.yPercent / 100) * height) - boxH;
+
+      page.drawRectangle({
+        x: Math.max(0, x),
+        y: Math.max(0, y),
+        width: boxW,
+        height: boxH,
+        color: rgb(0, 0, 0),
+      });
+    }
+
+    return await doc.save();
+  }
+
+  // Fallback to presets
   const targetPages: number[] = [];
   if (options.pageTarget === 'first') targetPages.push(0);
   else if (options.pageTarget === 'last') targetPages.push(total - 1);

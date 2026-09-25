@@ -39,8 +39,10 @@ import {
   extractPdfText,
   downloadPdfBlob,
   downloadBlob,
+  RedactBoxItem,
 } from '@/lib/pdf/core';
 import { compressPdf, CompressResult } from '@/lib/pdf/compress';
+import { PdfVisualEditor } from './PdfVisualEditor';
 
 interface ToolWorkspaceViewProps {
   tool: PdfTool;
@@ -83,6 +85,20 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [hasCopiedText, setHasCopiedText] = useState(false);
 
+  // Visual interactive placement states
+  const [signPlacement, setSignPlacement] = useState<{
+    pageNumber: number;
+    xPercent: number;
+    yPercent: number;
+    widthPercent: number;
+  }>({
+    pageNumber: 1,
+    xPercent: 60,
+    yPercent: 75,
+    widthPercent: 28,
+  });
+  const [redactBoxes, setRedactBoxes] = useState<RedactBoxItem[]>([]);
+
   // Signature state
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signatureOptions, setSignatureOptions] = useState<{
@@ -113,6 +129,13 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
     setOriginalPageCount(0);
     setExtractedText(null);
     setHasCopiedText(false);
+    setRedactBoxes([]);
+    setSignPlacement({
+      pageNumber: 1,
+      xPercent: 60,
+      yPercent: 75,
+      widthPercent: 28,
+    });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -248,10 +271,9 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             throw new Error('Silakan buat tanda tangan terlebih dahulu (gores pada kanvas, ketik nama, atau unggah gambar).');
           }
           resultBytes = await addSignatureToPdf(files[0], signatureDataUrl, {
-            pageNumber: signatureOptions.pageNumber,
-            position: signatureOptions.position,
+            customPlacement: signPlacement,
           });
-          outputFilename = `kelolapdf-bertandatangan.pdf`;
+          outputFilename = `kelolapdf-bertandatangan-${files[0].name}`;
           break;
         }
 
@@ -363,9 +385,11 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
         }
 
         case 'redact': {
+          if (redactBoxes.length === 0) {
+            throw new Error('Silakan buat minimal 1 kotak sensor pada pratinjau dokumen dengan tombol "+ Tambah Kotak Sensor".');
+          }
           resultBytes = await redactPdfPages(files[0], {
-            pageTarget: redactPage,
-            area: redactArea,
+            customBoxes: redactBoxes,
           });
           outputFilename = `kelolapdf-sensor-${files[0].name}`;
           break;
@@ -576,12 +600,28 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
 
             {/* 2. SIGN SETTINGS */}
             {tool.id === 'sign' && (
-              <SignaturePad
-                onSignatureChange={(dataUrl, opts) => {
-                  setSignatureDataUrl(dataUrl);
-                  setSignatureOptions(opts);
-                }}
-              />
+              <div className="space-y-4">
+                <SignaturePad
+                  onSignatureChange={(dataUrl, opts) => {
+                    setSignatureDataUrl(dataUrl);
+                    setSignatureOptions(opts);
+                  }}
+                />
+                {files.length > 0 && (
+                  <div className="pt-3 border-t border-stone-200">
+                    <h5 className="text-xs font-bold text-stone-900 mb-2 uppercase tracking-wider">
+                      Atur Posisi Tanda Tangan Secara Visual:
+                    </h5>
+                    <PdfVisualEditor
+                      file={files[0]}
+                      mode="sign"
+                      signatureDataUrl={signatureDataUrl}
+                      signPlacement={signPlacement}
+                      onSignPlacementChange={setSignPlacement}
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* 3. SPLIT SETTINGS */}
@@ -929,55 +969,17 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
             {/* 16. REDACT SETTINGS */}
             {tool.id === 'redact' && (
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-stone-700">Halaman yang Disensor:</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'Semua Lembar', val: 'all' },
-                      { label: 'Lembar Pertama', val: 'first' },
-                      { label: 'Lembar Terakhir', val: 'last' },
-                    ].map((item) => (
-                      <button
-                        key={item.val}
-                        type="button"
-                        onClick={() => setRedactPage(item.val as any)}
-                        className={`py-2 px-2 rounded-xl text-xs font-medium border transition ${
-                          redactPage === item.val
-                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-stone-700">Area Sensor Dokumen:</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'Bagian Atas', val: 'top' },
-                      { label: 'Bagian Tengah', val: 'middle' },
-                      { label: 'Bagian Bawah', val: 'bottom' },
-                    ].map((item) => (
-                      <button
-                        key={item.val}
-                        type="button"
-                        onClick={() => setRedactArea(item.val as any)}
-                        className={`py-2 px-2 rounded-xl text-xs font-medium border transition ${
-                          redactArea === item.val
-                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-[11px] text-stone-400">
-                  Blok hitam pekat permanen akan ditimpa di area yang dipilih untuk melindungi privasi.
+                <p className="text-xs text-stone-600">
+                  Tutup bagian data rahasia (seperti NIK, nomor rekening, alamat, nama, atau paraf) secara langsung pada lembar dokumen di bawah ini:
                 </p>
+                {files.length > 0 && (
+                  <PdfVisualEditor
+                    file={files[0]}
+                    mode="redact"
+                    redactBoxes={redactBoxes}
+                    onRedactBoxesChange={setRedactBoxes}
+                  />
+                )}
               </div>
             )}
 
