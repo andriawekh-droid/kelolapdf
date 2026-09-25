@@ -287,7 +287,13 @@ export default function HomePage() {
       <Footer />
 
       {/* ACTIVE TOOL WORKSPACE MODAL */}
-      <ToolWorkspaceModal tool={activeTool} onClose={() => setActiveTool(null)} />
+      {activeTool && (
+        <ToolWorkspaceModal
+          key={activeTool.id}
+          tool={activeTool}
+          onClose={() => setActiveTool(null)}
+        />
+      )}
     </div>
   );
 }

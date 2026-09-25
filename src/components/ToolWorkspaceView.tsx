@@ -63,6 +63,20 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Reset state whenever the active tool changes
+  React.useEffect(() => {
+    setFiles([]);
+    setSuccess(false);
+    setErrorMessage(null);
+    setIsProcessing(false);
+    setSignatureDataUrl(null);
+    setPassword('');
+    setUnlockPassword('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [tool?.id]);
+
   const isMultiple = tool.id === 'merge' || tool.id === 'image-to-pdf';
   const acceptedTypes =
     tool.id === 'image-to-pdf'
@@ -522,10 +536,25 @@ export const ToolWorkspaceView: React.FC<ToolWorkspaceViewProps> = ({ tool }) =>
 
       {/* Success Banner */}
       {success && (
-        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-xs animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-xs space-y-2.5 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span className="font-semibold">Berhasil! Dokumen PDF baru telah diunduh otomatis ke perangkat Anda.</span>
+          </div>
           <div>
-            <strong>Berhasil!</strong> Dokumen PDF baru telah diunduh otomatis ke perangkat Anda.
+            <button
+              type="button"
+              onClick={() => {
+                setFiles([]);
+                setSuccess(false);
+                setErrorMessage(null);
+                setSignatureDataUrl(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg font-medium hover:bg-emerald-100 transition shadow-2xs"
+            >
+              + Olah Berkas Lainnya
+            </button>
           </div>
         </div>
       )}
