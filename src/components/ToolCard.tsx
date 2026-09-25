@@ -17,15 +17,11 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool, onSelect }) => {
       className="notion-card group relative bg-white border border-stone-200 hover:border-stone-400/90 rounded-2xl p-5 cursor-pointer shadow-xs hover:shadow-[0_8px_24px_-6px_rgba(28,25,23,0.08)] flex flex-col justify-between transition-all"
     >
       <div>
-        {/* Top Header: Playful Sticker Icon & Badge */}
+        {/* Top Header: Clean Icon & Badge */}
         <div className="flex items-start justify-between gap-2 mb-4">
           <div
-            className={`w-12 h-12 rounded-xl border ${tool.accentBg} ${tool.accentBorder} flex items-center justify-center relative transition-transform duration-200 group-hover:scale-105 group-hover:rotate-[-2deg]`}
+            className={`w-12 h-12 rounded-xl border ${tool.accentBg} ${tool.accentBorder} flex items-center justify-center transition-transform duration-200 group-hover:scale-105`}
           >
-            {/* Playful Emoji floating on top corner */}
-            <span className="absolute -top-1.5 -left-1.5 text-xs select-none">
-              {tool.emoji}
-            </span>
             <DynamicIcon name={tool.iconName} className={`w-6 h-6 ${tool.accentText}`} />
           </div>
 

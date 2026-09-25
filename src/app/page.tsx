@@ -7,16 +7,7 @@ import { ToolCard } from '@/components/ToolCard';
 import { PrivacyBanner } from '@/components/PrivacyBanner';
 import { ToolWorkspaceModal } from '@/components/ToolWorkspaceModal';
 import { PDF_TOOLS, CATEGORIES, PdfTool } from '@/data/tools';
-import {
-  Search,
-  Sparkles,
-  ShieldCheck,
-  CheckCircle,
-  XCircle,
-  HelpCircle,
-  ArrowRight,
-  Flame,
-} from 'lucide-react';
+import { Search, CheckCircle } from 'lucide-react';
 
 export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -43,14 +34,6 @@ export default function HomePage() {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 w-full">
         {/* HERO SECTION */}
         <section className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 space-y-5">
-          {/* Top Notion-style Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-100 border border-stone-200/90 text-stone-700 text-xs font-medium shadow-2xs">
-            <span className="text-amber-500">✨</span>
-            <span>18 Alat PDF Lengkap di <strong>kelolapdf.web.id</strong></span>
-            <span className="w-1 h-1 rounded-full bg-stone-300" />
-            <span className="text-emerald-700 font-semibold">100% Client-Side</span>
-          </div>
-
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-stone-900 leading-[1.15]">
             Kelola Dokumen PDF Anda <br className="hidden sm:inline" />
@@ -121,7 +104,6 @@ export default function HomePage() {
                       : 'bg-white text-stone-600 border-stone-200/90 hover:bg-stone-100 hover:text-stone-900'
                   }`}
                 >
-                  <span>{cat.emoji}</span>
                   <span>{cat.name}</span>
                   <span
                     className={`ml-1 text-[10px] px-1.5 py-0.2 rounded-full ${
@@ -166,16 +148,13 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* NOTION-STYLE PRIVACY BANNER */}
+        {/* PRIVACY BANNER */}
         <PrivacyBanner />
 
         {/* COMPARISON SECTION (KelolaPDF vs Layanan Lain) */}
         <section className="my-16 bg-white border border-stone-200 rounded-3xl p-6 sm:p-10 shadow-xs">
           <div className="text-center max-w-xl mx-auto mb-8">
-            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-              Perbandingan Nyata
-            </span>
-            <h2 className="text-2xl font-bold text-stone-900 mt-3">
+            <h2 className="text-2xl font-bold text-stone-900">
               Mengapa Menggunakan KelolaPDF?
             </h2>
             <p className="text-stone-500 text-xs sm:text-sm mt-1">
@@ -189,7 +168,7 @@ export default function HomePage() {
                 <tr className="border-b border-stone-200 text-stone-500 text-xs font-semibold">
                   <th className="py-3 px-4">Fitur & Jaminan</th>
                   <th className="py-3 px-4 text-emerald-800 bg-emerald-50/70 rounded-t-xl font-bold">
-                    KelolaPDF (kelolapdf.web.id)
+                    KelolaPDF
                   </th>
                   <th className="py-3 px-4 text-stone-500">Layanan PDF Cloud Konvensional</th>
                 </tr>
@@ -270,7 +249,7 @@ export default function HomePage() {
             {[
               {
                 q: 'Apakah dokumen saya benar-benar aman dan tidak dibaca orang lain?',
-                a: 'Sangat aman! Seluruh teknologi di kelolapdf.web.id menggunakan pustaka WebAssembly dan JavaScript yang berjalan di dalam peramban lokal perangkat Anda. File PDF Anda tidak pernah dikirim lewat internet ke server manapun.',
+                a: 'Sangat aman! Seluruh teknologi di KelolaPDF menggunakan pustaka WebAssembly dan JavaScript yang berjalan di dalam peramban lokal perangkat Anda. File PDF Anda tidak pernah dikirim lewat internet ke server manapun.',
               },
               {
                 q: 'Apakah saya bisa menggunakan KelolaPDF saat internet lambat?',

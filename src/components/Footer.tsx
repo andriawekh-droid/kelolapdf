@@ -14,15 +14,9 @@ export const Footer: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-xs text-stone-600">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 font-mono">
-              <span>Domain:</span>
-              <strong className="text-stone-900">kelolapdf.web.id</strong>
-            </div>
-            <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Privasi Terlindungi</span>
-            </div>
+          <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Privasi Terlindungi</span>
           </div>
         </div>
 
